@@ -145,18 +145,17 @@ def export_data_frame(data,name) :
         json.dump(dictOfPoses, f, ensure_ascii=False, indent=4)
 
 
+list_vid = os.listdir("./vid")
 
-parser = argparse.ArgumentParser(description='yolov7-pose-estimation Video')
-parser.add_argument('--video', type=str, default='')
-parser.add_argument('--video_dir', type=str, default='')
-args = parser.parse_args()
+for vid in list_vid :
 
-pose_estimation_video(str(args.video_dir) + str(args.video) +'.mp4')
+    path_vid = "./vid/"+vid
+    pose_estimation_video(path_vid)
 
-df_yolov7 = pd.DataFrame(list_keypoints, columns=['PartId','TimeStamp','coordx','coordy'])
-df_yolov7 = df_yolov7.sort_values(by = ['TimeStamp','PartId']).reset_index(drop=True)
+    df_yolov7 = pd.DataFrame(list_keypoints, columns=['PartId','TimeStamp','coordx','coordy'])
+    df_yolov7 = df_yolov7.sort_values(by = ['TimeStamp','PartId']).reset_index(drop=True)
 
-export_data_frame(df_yolov7,str(args.video))
+    export_data_frame(df_yolov7, "./output/"+vid[:-4])
 
 
 
