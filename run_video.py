@@ -139,7 +139,6 @@ def export_data_frame(data,name) :
         list_pose.append(pose_t)
         
     dictOfPoses = [list_pose[i].as_json() for i in range(0, len(list_pose) ) ]
-    
 
     with open(name+'_modif.json', 'w', encoding='utf-8') as f:
         json.dump(dictOfPoses, f, ensure_ascii=False, indent=4)
@@ -156,7 +155,7 @@ pose_estimation_video(str(args.video_dir) + str(args.video) +'.mp4')
 df_yolov7 = pd.DataFrame(list_keypoints, columns=['PartId','TimeStamp','coordx','coordy'])
 df_yolov7 = df_yolov7.sort_values(by = ['TimeStamp','PartId']).reset_index(drop=True)
 
-export_data_frame(df_yolov7,str(args.video))
+export_data_frame(df_yolov7,"./output/"+str(args.video))
 
 
 

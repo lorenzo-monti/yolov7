@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 import pandas as pd
 import json 
+import time
 
 from pose import Pose
 import argparse
@@ -44,9 +45,10 @@ def run_inference(image):
     return output, image
 
 
-list_keypoints = []
 
-def draw_keypoints(output, image, t, resolution_vid):
+
+def draw_keypoints(output, image, t, resolution_vid, list_keypoints):
+  
   output = non_max_suppression_kpt(output, 
                                      0.25, # Confidence Threshold
                                      0.65, # IoU Threshold
@@ -60,26 +62,29 @@ def draw_keypoints(output, image, t, resolution_vid):
   nimg = cv2.cvtColor(nimg, cv2.COLOR_RGB2BGR)
 
   for idx in range(output.shape[0]):
-      output = output[idx, 7:].T
-      plot_skeleton_kpts(nimg, output, 3)
-   
-      cpt_id = 0  
-      for i in range (len(output)) :
-        if i%3 == 0 :
 
-            x = (output[i]*resolution_vid[0])/(nimg.shape[1])
-            y = (output[i+1]*resolution_vid[1])/(nimg.shape[0])
-        
-            list_keypoints.extend([[cpt_id, t+1, x, y]])
-            cpt_id += 1
+      if(len(output) == 1) :
 
-  return nimg
+        output = output[idx, 7:].T
+        plot_skeleton_kpts(nimg, output, 3)
+    
+        cpt_id = 0  
+        for i in range (len(output)) :
+            if i%3 == 0 :
 
+                x = (output[i]*resolution_vid[0])/(nimg.shape[1])
+                y = (output[i+1]*resolution_vid[1])/(nimg.shape[0])
+            
+                list_keypoints.extend([[cpt_id, t+1, x, y]])
+                cpt_id += 1
+
+  return nimg, list_keypoints
 def pose_estimation_video(filename):
+    list_keypoints = []
+
     cap = cv2.VideoCapture(filename)
 
     resolution_vid = [cap.get(3), cap.get(4)]
-    print(resolution_vid)
 
     num_of_timestep = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -91,7 +96,7 @@ def pose_estimation_video(filename):
         if ret == True:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             output, frame = run_inference(frame)
-            frame = draw_keypoints(output, frame, t, resolution_vid)
+            frame, list_keypoints = draw_keypoints(output, frame, t, resolution_vid, list_keypoints)
             
             frame = cv2.resize(frame, (int(cap.get(3)), int(cap.get(4))))
         
@@ -111,15 +116,18 @@ def pose_estimation_video(filename):
     
     cv2.destroyAllWindows()
 
+    return list_keypoints
+
 def export_data_frame(data,name) : 
+    '''Export the dataframe in a json file'''
     list_pose = []
 
-    TimeStamp = data["TimeStamp"]
+    TimeStamp = data["TimeStamp"].astype(int)
+    data['coordx'] = data['coordx'].astype(float)
+    data['coordy'] = data['coordy'].astype(float)
 
     max_timestamp = max(data["TimeStamp"])
 
-    
-    
     for i in range (1,max_timestamp+1) :
 
         
@@ -138,24 +146,48 @@ def export_data_frame(data,name) :
         pose_t.set_body_parts(human)
         list_pose.append(pose_t)
         
-    dictOfPoses = [list_pose[i].as_json() for i in range(0, len(list_pose) ) ]
-    
 
-    with open(name+'_modif.json', 'w', encoding='utf-8') as f:
+    dictOfPoses = [list_pose[i].as_json() for i in range(0, len(list_pose) ) ]
+        
+    with open(name+'.json', 'w', encoding='utf-8') as f:
         json.dump(dictOfPoses, f, ensure_ascii=False, indent=4)
 
 
-list_vid = os.listdir("./vid")
+def main():
+    os.chdir(r"/media/lorenzo/easystore/20230306_Cephismer")
 
-for vid in list_vid :
-
-    path_vid = "./vid/"+vid
-    pose_estimation_video(path_vid)
-
-    df_yolov7 = pd.DataFrame(list_keypoints, columns=['PartId','TimeStamp','coordx','coordy'])
-    df_yolov7 = df_yolov7.sort_values(by = ['TimeStamp','PartId']).reset_index(drop=True)
-
-    export_data_frame(df_yolov7, "./output/"+vid[:-4])
+    list_dir = os.listdir("./dataset")
+    list_dir = sorted(list_dir)
 
 
+    for i in range (8, len(list_dir)) :
+
+
+        dir = list_dir[i]
+        list_vid = os.listdir("./dataset/"+dir+"/vid")
+        list_vid = sorted(list_vid)
+
+        for j in range (len(list_vid)) :
+            vid = list_vid[j]
+            
+            # if(vid.split('_')[2]=='wat') :
+            name_vid = 'xy_rawy7'+ vid[9:-4]
+
+            list_keypoints = pose_estimation_video("./dataset/"+dir+"/vid/"+vid)
+
+            df_yolov7 = pd.DataFrame(list_keypoints, columns=['PartId','TimeStamp','coordx','coordy'])
+            df_yolov7 = df_yolov7.sort_values(by = ['TimeStamp','PartId']).reset_index(drop=True)
+
+            print(vid)
+
+            export_data_frame(df_yolov7, "./dataset/"+dir+"/y7/"+name_vid)
+
+            
+                
+            # else :
+            #     name_vid = 'xy_rawy7'+ vid[8:-4]
+            
+
+if __name__ == "__main__":
+    main()
 
